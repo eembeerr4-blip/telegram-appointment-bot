@@ -1,3 +1,4 @@
+import asyncio
 import sqlite3
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -49,8 +50,34 @@ def init_db() -> None:
             )
             """
         )
+        conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_appointments_telegram_id
+            ON appointments (telegram_id)
+            """
+        )
+        conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_appointments_datetime_iso
+            ON appointments (datetime_iso)
+            """
+        )
+        conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_appointments_status
+            ON appointments (status)
+            """
+        )
         _ensure_appointment_columns(conn)
         conn.commit()
+
+
+async def init_db_async() -> None:
+    await asyncio.to_thread(init_db)
+
+
+async def save_user_async(telegram_id: int, name: str, phone: str) -> None:
+    await asyncio.to_thread(save_user, telegram_id, name, phone)
 
 
 def save_user(telegram_id: int, name: str, phone: str) -> None:
@@ -64,6 +91,10 @@ def save_user(telegram_id: int, name: str, phone: str) -> None:
             (name, phone, telegram_id),
         )
         conn.commit()
+
+
+async def save_appointment_async(telegram_id: int, service: str, date_time: str, datetime_iso: str) -> None:
+    await asyncio.to_thread(save_appointment, telegram_id, service, date_time, datetime_iso)
 
 
 def save_appointment(telegram_id: int, service: str, date_time: str, datetime_iso: str) -> None:
@@ -85,6 +116,10 @@ def save_appointment(telegram_id: int, service: str, date_time: str, datetime_is
         conn.commit()
 
 
+async def get_user_appointments_async(telegram_id: int) -> list[sqlite3.Row]:
+    return await asyncio.to_thread(get_user_appointments, telegram_id)
+
+
 def get_user_appointments(telegram_id: int) -> list[sqlite3.Row]:
     with get_connection() as conn:
         return conn.execute(
@@ -96,6 +131,10 @@ def get_user_appointments(telegram_id: int) -> list[sqlite3.Row]:
             """,
             (telegram_id,),
         ).fetchall()
+
+
+async def is_slot_available_async(datetime_iso: str) -> bool:
+    return await asyncio.to_thread(is_slot_available, datetime_iso)
 
 
 def is_slot_available(datetime_iso: str) -> bool:
@@ -112,6 +151,10 @@ def is_slot_available(datetime_iso: str) -> bool:
         return row["count"] == 0
 
 
+async def cancel_appointment_async(telegram_id: int, appointment_id: int) -> bool:
+    return await asyncio.to_thread(cancel_appointment, telegram_id, appointment_id)
+
+
 def cancel_appointment(telegram_id: int, appointment_id: int) -> bool:
     with get_connection() as conn:
         cursor = conn.execute(
@@ -124,6 +167,10 @@ def cancel_appointment(telegram_id: int, appointment_id: int) -> bool:
         )
         conn.commit()
         return cursor.rowcount > 0
+
+
+async def get_todays_appointments_async(day_iso: str) -> list[sqlite3.Row]:
+    return await asyncio.to_thread(get_todays_appointments, day_iso)
 
 
 def get_todays_appointments(day_iso: str) -> list[sqlite3.Row]:
@@ -151,6 +198,10 @@ def get_todays_appointments(day_iso: str) -> list[sqlite3.Row]:
         ).fetchall()
 
 
+async def get_active_appointments_async() -> list[sqlite3.Row]:
+    return await asyncio.to_thread(get_active_appointments)
+
+
 def get_active_appointments() -> list[sqlite3.Row]:
     with get_connection() as conn:
         return conn.execute(
@@ -163,6 +214,10 @@ def get_active_appointments() -> list[sqlite3.Row]:
         ).fetchall()
 
 
+async def get_upcoming_reminder_appointments_async(now_iso: str, deadline_iso: str) -> list[sqlite3.Row]:
+    return await asyncio.to_thread(get_upcoming_reminder_appointments, now_iso, deadline_iso)
+
+
 def get_upcoming_reminder_appointments(now_iso: str, deadline_iso: str) -> list[sqlite3.Row]:
     with get_connection() as conn:
         return conn.execute(
@@ -171,13 +226,16 @@ def get_upcoming_reminder_appointments(now_iso: str, deadline_iso: str) -> list[
             FROM appointments
             WHERE status != 'cancelled'
               AND datetime_iso IS NOT NULL
-              AND reminder_1h_sent = 0
               AND datetime_iso >= ?
               AND datetime_iso <= ?
             ORDER BY datetime_iso ASC
             """,
             (now_iso, deadline_iso),
         ).fetchall()
+
+
+async def mark_reminder_sent_async(appointment_id: int, reminder_type: str) -> None:
+    await asyncio.to_thread(mark_reminder_sent, appointment_id, reminder_type)
 
 
 def mark_reminder_sent(appointment_id: int, reminder_type: str) -> None:

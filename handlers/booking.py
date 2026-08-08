@@ -7,13 +7,13 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import CallbackQuery, Message
 
-from config import get_admin_id
+from config import get_admin_chat_id
 from database import (
-    cancel_appointment,
-    get_user_appointments,
-    is_slot_available,
-    save_appointment,
-    save_user,
+    cancel_appointment_async,
+    get_user_appointments_async,
+    is_slot_available_async,
+    save_appointment_async,
+    save_user_async,
 )
 from keyboards.booking import (
     booking_cb,
@@ -205,7 +205,7 @@ async def handle_booking_callback(
             return
 
         datetime_iso = f"{date_iso}T{time_text}:00"
-        if not is_slot_available(datetime_iso):
+        if not await is_slot_available_async(datetime_iso):
             await callback_query.answer("Цей слот вже зайнятий. Оберіть інший час.", show_alert=True)
             await state.set_state(BookingStates.waiting_for_time)
             await _safe_edit_message(
@@ -217,10 +217,15 @@ async def handle_booking_callback(
             )
             return
 
-        save_user(callback_query.from_user.id, name, phone)
-        save_appointment(callback_query.from_user.id, service, format_datetime_text(date_iso, time_text), datetime_iso)
+        await save_user_async(callback_query.from_user.id, name, phone)
+        await save_appointment_async(
+            callback_query.from_user.id,
+            service,
+            format_datetime_text(date_iso, time_text),
+            datetime_iso,
+        )
 
-        admin_id = get_admin_id()
+        admin_id = await get_admin_chat_id(callback_query.bot)
         if admin_id:
             try:
                 await callback_query.bot.send_message(
@@ -302,13 +307,13 @@ async def handle_booking_callback(
             await callback_query.answer("Невірний запис.", show_alert=True)
             return
 
-        canceled = cancel_appointment(callback_query.from_user.id, appointment_id)
+        canceled = await cancel_appointment_async(callback_query.from_user.id, appointment_id)
         if canceled:
             await callback_query.answer("Запис скасовано.")
         else:
             await callback_query.answer("Не вдалося скасувати запис.", show_alert=True)
 
-        appointments = get_user_appointments(callback_query.from_user.id)
+        appointments = await get_user_appointments_async(callback_query.from_user.id)
         text = format_user_appointments(appointments)
         keyboard = get_user_appointments_keyboard([dict(row) for row in appointments])
 
@@ -333,13 +338,13 @@ async def handle_legacy_cancel_appointment(callback_query: CallbackQuery, state:
         await callback_query.answer("Невірний запис.", show_alert=True)
         return
 
-    canceled = cancel_appointment(callback_query.from_user.id, int(appointment_id))
+    canceled = await cancel_appointment_async(callback_query.from_user.id, int(appointment_id))
     if canceled:
         await callback_query.answer("Запис скасовано.")
     else:
         await callback_query.answer("Не вдалося скасувати запис.", show_alert=True)
 
-    appointments = get_user_appointments(callback_query.from_user.id)
+    appointments = await get_user_appointments_async(callback_query.from_user.id)
     text = format_user_appointments(appointments)
     keyboard = get_user_appointments_keyboard([dict(row) for row in appointments])
 

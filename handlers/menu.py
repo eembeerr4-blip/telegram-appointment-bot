@@ -5,8 +5,8 @@ from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
 
-from config import get_admin_id, SALON_ADDRESS, SALON_PHONE
-from database import get_todays_appointments, get_user_appointments
+from config import get_admin_chat_id, SALON_ADDRESS, SALON_PHONE
+from database import get_todays_appointments_async, get_user_appointments_async
 from keyboards.booking import get_user_appointments_keyboard
 from keyboards.main_menu import get_main_keyboard
 from bot_utils import format_user_appointments, format_today_appointments
@@ -26,7 +26,7 @@ async def show_phone(message: Message) -> None:
 
 @router.message(lambda message: message.text in {"📅 Мої записи"})
 async def show_my_appointments(message: Message) -> None:
-    appointments = get_user_appointments(message.from_user.id)
+    appointments = await get_user_appointments_async(message.from_user.id)
     text = format_user_appointments(appointments)
     keyboard = get_user_appointments_keyboard([dict(row) for row in appointments])
     await message.answer(text, reply_markup=keyboard or get_main_keyboard())
@@ -59,11 +59,11 @@ async def start_booking(message: Message, state: FSMContext) -> None:
 
 @router.message(Command("today"))
 async def cmd_today(message: Message) -> None:
-    admin_id = get_admin_id()
+    admin_id = await get_admin_chat_id(message.bot)
     if not admin_id or message.from_user.id != admin_id:
         await message.answer("У вас немає доступу до цієї команди.")
         return
 
     today = date.today().isoformat()
-    appointments = get_todays_appointments(today)
+    appointments = await get_todays_appointments_async(today)
     await message.answer(format_today_appointments(appointments), reply_markup=get_main_keyboard())

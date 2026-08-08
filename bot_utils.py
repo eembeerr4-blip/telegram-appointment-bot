@@ -3,6 +3,16 @@ from __future__ import annotations
 
 from typing import Any, Mapping, Sequence
 
+STATUS_LABELS = {
+    "new": "Новий",
+    "confirmed": "Підтверджено",
+    "cancelled": "Скасовано",
+}
+
+
+def get_status_label(status: str | None) -> str:
+    return STATUS_LABELS.get(status or "", status or "")
+
 
 def format_appointment_message(name: str, phone: str, service: str, date_time: str) -> str:
     return (
@@ -24,11 +34,7 @@ def format_user_appointments(appointments: Sequence[Mapping[str, Any]]) -> str:
         date_time = appointment.get("date_time", "Не вказано")
         status = appointment.get("status", "new")
 
-        status_label = {
-            "new": "Новий",
-            "confirmed": "Підтверджено",
-            "cancelled": "Скасовано",
-        }.get(status, status)
+        status_label = get_status_label(status)
 
         lines.append(f"\n{index}. {service}\n📅 {date_time}\n🟡 Статус: {status_label}")
 
@@ -47,11 +53,7 @@ def format_today_appointments(appointments: Sequence[Mapping[str, Any]]) -> str:
         date_time = appointment.get("date_time", "Не вказано")
         status = appointment.get("status", "new")
 
-        status_label = {
-            "new": "Новий",
-            "confirmed": "Підтверджено",
-            "cancelled": "Скасовано",
-        }.get(status, status)
+        status_label = get_status_label(status)
 
         lines.append(
             "\n"

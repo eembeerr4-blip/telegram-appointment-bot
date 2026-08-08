@@ -1,2 +1,4 @@
 aiogram==3.13.0
 python-dotenv==1.0.1
+aiolimiter==1.1.0
+pydantic-settings==2.3.4
